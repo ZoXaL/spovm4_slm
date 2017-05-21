@@ -1,0 +1,16 @@
+[Unit]
+Description=Example of forking daemon program
+
+[Service]
+Type=forking
+PIDFile=/var/run/slmd.pid
+ExecStart=/usr/bin/slmd \
+	--config-file /etc/daemon/daemon.conf \
+	--log-file /var/log/slmd.log \
+	--pid-file /var/run/slmd.pid
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+ExecStop=/bin/kill -s SIGINT $MAINPID
+
+[Install]
+WantedBy=multi-user.target

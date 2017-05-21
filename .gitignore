@@ -1,1 +1,2 @@
-build/
+_builds/
+cmake-build-debug/
