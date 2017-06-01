@@ -29,6 +29,7 @@ static void mark_dead(monitor_t monitor);
 static uint32_t mask_from_mode(char* mode);
 
 int inotify_monitor_from_args(int argc, char* argv[], monitor_t* monitor) {
+//	if (argc < 2) return E_INVALID_MONITOR_ARGUMENT;
 	*monitor = (monitor_t)malloc(sizeof(struct monitor_t));
 	if (*monitor == NULL) {
 		log_error("malloc: %s", strerror(errno));
@@ -124,25 +125,36 @@ int inotify_monitor_from_args(int argc, char* argv[], monitor_t* monitor) {
 		return E_OUT_OF_MEMORY;
 	}
 	strcpy(inotify_monitor->file_path, argv[optind]);
+	pthread_mutex_lock(&(inotify_monitor->state_mutex));
 	(*monitor)->state = MONITOR_STATE_INITIALIZED;
+	pthread_mutex_unlock(&(inotify_monitor->state_mutex));
 	return CALL_SUCCESS;
 }
 
 int inotify_start(monitor_t monitor) {
-	monitor->state = MONITOR_STATE_RUNNING;
+	pthread_mutex_lock(&(monitor->inotify->state_mutex));
+	if (monitor->state != MONITOR_STATE_INITIALIZED) {
+		log_error("cannot start monitor wich is not in \'initialized\' state");
+		pthread_mutex_unlock(&(monitor->inotify->state_mutex));
+		return E_MONITOR_INVALID_STATE;
+	}
 	if (pthread_create(&(monitor->inotify->thread),
 		NULL, monitoring_thread, monitor) != 0) {
 		log_error("inotify pthread_create: %s", strerror(errno));
+		pthread_mutex_unlock(&(monitor->inotify->state_mutex));
 		return CALL_FAILURE;
 	}
+	monitor->state = MONITOR_STATE_RUNNING;
+	pthread_mutex_unlock(&(monitor->inotify->state_mutex));
 	return CALL_SUCCESS;
 }
 
 int inotify_stop(monitor_t monitor) {
-	if (monitor->state == MONITOR_STATE_NOT_INITIALIZED) {
-		return E_MONITOR_NOT_INITIALIZED;
-	}
 	pthread_mutex_lock(&(monitor->inotify->state_mutex));
+	if (monitor->state != MONITOR_STATE_RUNNING) {
+		pthread_mutex_unlock(&(monitor->inotify->state_mutex));
+		return E_MONITOR_INVALID_STATE;
+	}
 	monitor->state = MONITOR_STATE_DYING;
 	pthread_mutex_unlock(&(monitor->inotify->state_mutex));
 	return CALL_SUCCESS;
@@ -150,6 +162,7 @@ int inotify_stop(monitor_t monitor) {
 
 void inotify_join(monitor_t monitor) {
 	pthread_join(monitor->inotify->thread, NULL);
+	log_info("inotify monitor was stopped");
 }
 
 void inotify_print_usage() {
@@ -169,7 +182,7 @@ int inotify_monitor_destroy(monitor_t monitor) {
 	if (monitor->state != MONITOR_STATE_DEAD) {
 		return E_MONITOR_INVALID_STATE;
 	}
-	log_info("intotify monitor %s was killed", monitor->inotify->file_path);
+	log_info("inotify monitor %s was killed", monitor->inotify->file_path);
 	inotify_monitor_t inotify_monitor = monitor->inotify;
 	close(inotify_monitor->inotify_file_descriptor);
 	free(inotify_monitor->mode);
@@ -182,17 +195,21 @@ static void* monitoring_thread(void* monitor_ptr) {
 	monitor_t monitor = (monitor_t)monitor_ptr;
 	inotify_monitor_t inotify_monitor = monitor->inotify;
 
-	log_info("intotify monitor %s created", monitor->inotify->file_path);
+	log_info("inotify monitor %s created", monitor->inotify->file_path);
 
 	sigset_t blocking_mask;
 	if (sigfillset(&blocking_mask) != 0) {
 		log_error("cannot create sigmask for inotify thread, exit");
+		pthread_mutex_lock(&(inotify_monitor->state_mutex));
 		monitor->state = MONITOR_STATE_DEAD;
+		pthread_mutex_unlock(&(inotify_monitor->state_mutex));
 		return NULL;
 	}
 	if (pthread_sigmask(SIG_BLOCK, &blocking_mask, NULL) != 0) {
 		log_error("cannot mask inotify thread signals, exit");
+		pthread_mutex_lock(&(inotify_monitor->state_mutex));
 		monitor->state = MONITOR_STATE_DEAD;
+		pthread_mutex_unlock(&(inotify_monitor->state_mutex));
 		return NULL;
 	}
 	if(inotify_add_watch(inotify_monitor->inotify_file_descriptor,
@@ -214,10 +231,13 @@ static void* monitoring_thread(void* monitor_ptr) {
 
 	while(1) {
 		do {
-			if (monitor->state != MONITOR_STATE_RUNNING) {
+			pthread_mutex_lock(&(inotify_monitor->state_mutex));
+			if (monitor->state == MONITOR_STATE_DYING) {
+				pthread_mutex_unlock(&(inotify_monitor->state_mutex));
 				mark_dead(monitor);
 				return NULL;
 			}
+			pthread_mutex_unlock(&(inotify_monitor->state_mutex));
 		    poll(&inotify_poll_fd, 1, 500);
 		} while (inotify_poll_fd.revents != POLLIN);
 
@@ -234,7 +254,7 @@ static void* monitoring_thread(void* monitor_ptr) {
 			if (event->mask & IN_CLOSE) {
 				log_info("file %s was closed", inotify_monitor->file_path);
 			}
-			if (event->mask & IN_CREATE) {
+			if (event->mask & IN_CLOSE_WRITE) {
 				log_info("file %s was changed", inotify_monitor->file_path);
 			}
 			if (event->mask & IN_MOVE_SELF) {
@@ -254,8 +274,10 @@ static void* monitoring_thread(void* monitor_ptr) {
 
 static void mark_dead(monitor_t monitor) {
 	close(monitor->inotify->inotify_file_descriptor);
-	pthread_mutex_destroy(&(monitor->inotify->state_mutex));
+	pthread_mutex_lock(&(monitor->inotify->state_mutex));
 	monitor->state = MONITOR_STATE_DEAD;
+	pthread_mutex_unlock(&(monitor->inotify->state_mutex));
+	pthread_mutex_destroy(&(monitor->inotify->state_mutex));
 }
 
 static uint32_t mask_from_mode(char* mode) {

@@ -35,19 +35,19 @@ int main(int argc, char* argv[]) {
 	if (parse_result == E_INVALID_INPUT) {
 		showUsage();
 		return EXIT_FAILURE;
-	}
-	if (parse_result == E_INVALID_MONITOR_ARGUMENT) {
-		monitor_show_usage(main_monitor);
+	} else if (parse_result != CALL_SUCCESS) {
 		return EXIT_FAILURE;
 	}
 	if (initialize_logging() != CALL_SUCCESS) {
+		printf("can not initialize logging module, exit\n");
 		return EXIT_FAILURE;
 	}
 	if (start_monitor(main_monitor) != CALL_SUCCESS) {
+		printf("can not start monitor, exit\n");
         return EXIT_FAILURE;
     }
     join_monitor(main_monitor);
 	destroy_monitor(main_monitor);
 	destroy_logging();
-	return 0;
+	return EXIT_SUCCESS;
 }

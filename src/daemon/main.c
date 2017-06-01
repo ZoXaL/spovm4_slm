@@ -67,7 +67,8 @@ int apply_configs() {
 				token = strtok (NULL, " ");
 			}
 		}
-		monitor_t new_monitor = NULL;
+		monitor_t new_monitor;
+		log_info("Starting monitor %s", argv[0]);
 		if (monitor_from_args(argc, argv, &new_monitor) == CALL_SUCCESS) {
 			g_array_append_val(monitors_array, new_monitor);
 			monitors_array_size++;

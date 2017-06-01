@@ -1,11 +1,11 @@
 [Unit]
-Description=Example of forking daemon program
+Description=slm utility daemon version
 
 [Service]
 Type=forking
 PIDFile=/var/run/slmd.pid
 ExecStart=/usr/bin/slmd \
-	--config-file /etc/daemon/daemon.conf \
+	--config-file /etc/config/slmd.conf \
 	--log-file /var/log/slmd.log \
 	--pid-file /var/run/slmd.pid
 ExecReload=/bin/kill -HUP $MAINPID

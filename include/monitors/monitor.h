@@ -1,7 +1,9 @@
-#include "inotify_monitor.h"
-
 #ifndef MONITOR_FACTORY_H
 #define MONITOR_FACTORY_H
+
+#include "inotify_monitor.h"
+#include "dbus_monitor.h"
+#include "udev_monitor.h"
 
 #define MONITOR_TYPE_INVALID 		0
 #define MONITOR_TYPE_INOTIFY		1
@@ -18,59 +20,22 @@ struct monitor_t {
 	int type;
 	union {
 		inotify_monitor_t inotify;
-		//dbus_monitor_t dbus;
-		//udev_monitor_t udev;
+		dbus_monitor_t dbus;
+		udev_monitor_t udev;
 	};
 
 	int state;
 };
 typedef struct monitor_t* monitor_t;
 
-/**
- * Creates monitor from command line
- *
- * @param argc
- * @param argv
- * @param monitor
- * @return INVALID_MONITOR_TYPE
- * @return see concrete monitors functions
- */
 int monitor_from_args(int argc, char* argv[], monitor_t*);
 
-/**
- * @param monitor
- * @return INVALID_MONITOR_TYPE
- * @return see concrete monitors functions
- */
 int start_monitor(monitor_t);
 
-/**
- * @param monitor
- * @return INVALID_MONITOR_TYPE
- * @return see concrete monitors functions
- */
 int stop_monitor(monitor_t);
 
-/**
- * @param monitor
- * @return INVALID_MONITOR_TYPE
- * @return see concrete monitors functions
- */
 void join_monitor(monitor_t);
 
-/**
- * Can be used only after monitor death
- *
- * @param monitor
- * @return INVALID_MONITOR_STATE
- * @return see concrete monitors functions
- */
 int destroy_monitor(monitor_t);
-
-/**
- * Prints usage for concrete monitor
- * @param monitor
- */
-void monitor_show_usage(monitor_t);
 
 #endif
