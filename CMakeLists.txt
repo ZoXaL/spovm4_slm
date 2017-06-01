@@ -6,20 +6,38 @@ set(SYSTEMD_UNIT_DIR "/usr/lib/systemd/system")
 
 find_package(PkgConfig)
 pkg_check_modules(GLIB2 glib-2.0)
+pkg_check_modules(GIO2 gio-2.0)
+pkg_check_modules(UDEV libudev)
 
 include_directories(include/ include/monitors include/logging/)
-include_directories(${GLIB2_INCLUDE_DIRS})
+include_directories(${GLIB2_INCLUDE_DIRS} ${GIO2_INCLUDE_DIRS} ${UDEV_INCLUDE_DIRS})
 
-set(MONITOR_SRC src/monitors/monitor.c src/monitors/inotify_monitor.c src/logging.c)
+set(MONITOR_SRC src/monitors/monitor.c
+        src/monitors/inotify_monitor.c
+        src/monitors/dbus_monitor.c
+        src/monitors/udev_monitor.c
+        )
 
-add_executable(slm src/utility/main.c ${MONITOR_SRC})
-add_executable (slmd src/daemon/main.c ${MONITOR_SRC})
+add_library(slm-monitor ${MONITOR_SRC})
+
+add_executable(slm src/utility/main.c src/logging.c)
+add_executable (slmd src/daemon/main.c src/logging.c)
 target_compile_definitions(slmd PUBLIC -DDAEMON)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package (Threads)
-target_link_libraries (slm ${CMAKE_THREAD_LIBS_INIT} ${GLIB2_LIBRARIES})
-target_link_libraries (slmd ${CMAKE_THREAD_LIBS_INIT} ${GLIB2_LIBRARIES})
+target_link_libraries (slm
+        slm-monitor
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${GLIB2_LIBRARIES}
+        ${GIO2_LIBRARIES}
+        ${UDEV_LIBRARIES})
+target_link_libraries (slmd
+        slm-monitor
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${GLIB2_LIBRARIES}
+        ${GIO2_LIBRARIES}
+        ${UDEV_LIBRARIES})
 
 install (TARGETS slm DESTINATION /usr/bin)
 install (TARGETS slmd DESTINATION /usr/bin)
