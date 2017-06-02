@@ -1,4 +1,4 @@
-#SLM
+# SLM
 ## About
 SLM (stands for System Linux Monitor) is a Linux utility aimed to simplify OS kernel state analizing. SLM distribution comes as utility and daemon, both have equal functionality but different run modes. 
 

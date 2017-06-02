@@ -40,10 +40,12 @@ int main(int argc, char* argv[]) {
 	}
 	if (initialize_logging() != CALL_SUCCESS) {
 		printf("can not initialize logging module, exit\n");
+		destroy_monitor(main_monitor);
 		return EXIT_FAILURE;
 	}
 	if (start_monitor(main_monitor) != CALL_SUCCESS) {
 		printf("can not start monitor, exit\n");
+		destroy_monitor(main_monitor);
         return EXIT_FAILURE;
     }
     join_monitor(main_monitor);

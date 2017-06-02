@@ -112,7 +112,8 @@ void dbus_print_usage(int type) {
 }
 
 int dbus_monitor_destroy(monitor_t monitor) {
-	if (monitor->state != MONITOR_STATE_DEAD) {
+	if (monitor->state == MONITOR_STATE_RUNNING
+		|| monitor->state == MONITOR_STATE_DYING) {
 		return E_MONITOR_INVALID_STATE;
 	}
 	log_info("dbus monitor was gracefuly destroyed");
