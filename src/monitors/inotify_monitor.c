@@ -200,16 +200,12 @@ static void* monitoring_thread(void* monitor_ptr) {
 	sigset_t blocking_mask;
 	if (sigfillset(&blocking_mask) != 0) {
 		log_error("cannot create sigmask for inotify thread, exit");
-		pthread_mutex_lock(&(inotify_monitor->state_mutex));
-		monitor->state = MONITOR_STATE_DEAD;
-		pthread_mutex_unlock(&(inotify_monitor->state_mutex));
+		mark_dead(monitor);
 		return NULL;
 	}
 	if (pthread_sigmask(SIG_BLOCK, &blocking_mask, NULL) != 0) {
 		log_error("cannot mask inotify thread signals, exit");
-		pthread_mutex_lock(&(inotify_monitor->state_mutex));
-		monitor->state = MONITOR_STATE_DEAD;
-		pthread_mutex_unlock(&(inotify_monitor->state_mutex));
+		mark_dead(monitor);
 		return NULL;
 	}
 	if(inotify_add_watch(inotify_monitor->inotify_file_descriptor,
@@ -217,7 +213,7 @@ static void* monitoring_thread(void* monitor_ptr) {
 						mask_from_mode(inotify_monitor->mode)) == -1) {
 		log_error("inotify add watch for %s: %s",
 				  inotify_monitor->file_path, strerror(errno));
-		monitor->state = MONITOR_STATE_DEAD;
+		mark_dead(monitor);
 		return NULL;
 	}
 
@@ -273,11 +269,9 @@ static void* monitoring_thread(void* monitor_ptr) {
 }
 
 static void mark_dead(monitor_t monitor) {
-	close(monitor->inotify->inotify_file_descriptor);
 	pthread_mutex_lock(&(monitor->inotify->state_mutex));
 	monitor->state = MONITOR_STATE_DEAD;
 	pthread_mutex_unlock(&(monitor->inotify->state_mutex));
-	pthread_mutex_destroy(&(monitor->inotify->state_mutex));
 }
 
 static uint32_t mask_from_mode(char* mode) {

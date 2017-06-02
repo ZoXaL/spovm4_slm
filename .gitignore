@@ -1,3 +1,4 @@
 _builds/
 cmake-build-debug/
 *.iml
+.idea

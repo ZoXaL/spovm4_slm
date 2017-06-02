@@ -143,6 +143,7 @@ static void* monitoring_thread(void* monitor_ptr) {
 	udev = udev_new();
 	if (!udev) {
 		log_error("can not create udev struct, exit monitor\n");
+		mark_dead(monitor);
 		return NULL;
 	}
 
@@ -157,6 +158,7 @@ static void* monitoring_thread(void* monitor_ptr) {
 	int epoll_fd = epoll_create1(0);
 	if (epoll_fd < 0) {
 		log_error("can not create epoll fd, udev monitor exit\n");
+		mark_dead(monitor);
 		return NULL;
 	}
 
@@ -166,6 +168,7 @@ static void* monitoring_thread(void* monitor_ptr) {
 	ep_udev.data.fd = udev_fd;
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, udev_fd, &ep_udev) < 0) {
 		log_error("can not add event to epoll, udev monitor exit\n");
+		mark_dead(monitor);
 		return NULL;
 	}
 
@@ -219,5 +222,4 @@ static void mark_dead(monitor_t monitor) {
 	pthread_mutex_lock(&(monitor->udev->state_mutex));
 	monitor->state = MONITOR_STATE_DEAD;
 	pthread_mutex_unlock(&(monitor->udev->state_mutex));
-	pthread_mutex_destroy(&(monitor->udev->state_mutex));
 }
